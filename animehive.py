@@ -5,6 +5,7 @@ import threading
 from multiprocessing import Pool
 import pymongo
 import telegram
+from telegram import KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Updater
 from telegram.ext import CommandHandler
 from telegram.ext import CallbackQueryHandler
@@ -135,26 +136,23 @@ def button_thread(update, context):
     if query_data.split("=")[0] == "d":
         total_episodes, alias, anime_id = fetch_gogoanime_anime(
             query_data.split("=")[1])
-        context.bot.send_message(
-            chat_id=chat_id, text=config["messages"]["download_pagination"].format(total_episodes))
+        markup = []
         for i in range(0, total_episodes, 10):
-            markup = [[InlineKeyboardButton(
-                "Get Episodes 🚀", callback_data="f={}={}={}".format(alias, anime_id, i))]]
-            context.bot.send_message(
-                chat_id=chat_id, text="Download Episodes {} - {}".format(i + 1, min(i + 10, total_episodes)), reply_markup=InlineKeyboardMarkup(markup))
+            markup.append([InlineKeyboardButton("Download Episodes {} - {}".format(i + 1, min(
+                i + 10, total_episodes)), callback_data="f={}={}={}".format(alias, anime_id, i))])
+        context.bot.send_message(chat_id=chat_id, text=config["messages"]["download_pagination"].format(
+            total_episodes), reply_markup=InlineKeyboardMarkup(markup))
     if query_data.split("=")[0] == "f":
         start = int(query_data.split("=")[3])
         alias = query_data.split("=")[1]
         episodes = fetch_gogoanime_episodes(
             start, start + 10, alias, query_data.split("=")[2])
+        markup = []
         for i in episodes:
-            try:
-                markup = [[InlineKeyboardButton(
-                    "Get Download Links 🔥", callback_data="g={}".format(i["href"]))]]
-                context.bot.send_message(
-                    chat_id=chat_id, text=os.path.basename(i["href"]).replace("-", " "), reply_markup=InlineKeyboardMarkup(markup))
-            except:
-                pass
+            markup.append([InlineKeyboardButton(os.path.basename(i["href"]).replace(
+                "-", " "), callback_data="g={}".format(i["href"]))])
+        context.bot.send_message(
+            chat_id=chat_id, text=config["messages"]["select_episode"], reply_markup=InlineKeyboardMarkup(markup))
     if query_data.split("=")[0] == "g":
         anime_title, download_links = fetch_gogoanime_download(
             query_data.split("=")[1])
@@ -164,14 +162,11 @@ def button_thread(update, context):
             "href": "https://gogoanime.so" + query_data.split("=")[1],
             "date": datetime.datetime.now()
         })
+        markup = []
         for i in download_links:
-            try:
-                markup = [[InlineKeyboardButton(
-                    "Start Downloading 🚀", url=i["href"])]]
-                context.bot.send_message(
-                    chat_id=chat_id, text=f"{anime_title} {i['name']}", reply_markup=InlineKeyboardMarkup(markup))
-            except:
-                pass
+            markup.append([InlineKeyboardButton(i["name"], url=i["href"])])
+        context.bot.send_message(
+            chat_id=chat_id, text=anime_title, reply_markup=InlineKeyboardMarkup(markup))
     if query_data.split("=")[0] == "i":
         db.info.insert_one({"chat_id": chat_id, "anime": query_data.split("=")[
                            1], "date": datetime.datetime.now()})
@@ -191,7 +186,10 @@ def start(update, context):
             {"chat_id": chat_id, "last_command": None, "admin": False, "date": datetime.datetime.now()})
     context.bot.send_message(
         chat_id=chat_id, text=config["messages"]["start"].format(first_name))
-    context.bot.send_message(chat_id=chat_id, text=config["messages"]["menu"])
+    markup = ReplyKeyboardMarkup([[KeyboardButton("/download"), KeyboardButton("/recommend"), KeyboardButton("/latest")], [
+                                 KeyboardButton("/info"), KeyboardButton("/donate"), KeyboardButton("/help")]], resize_keyboard=True)
+    context.bot.send_message(
+        chat_id=chat_id, text=config["messages"]["menu"], reply_markup=markup)
     db.users.update_one({"chat_id": chat_id}, {"$set": {"last_command": None}})
 
 
